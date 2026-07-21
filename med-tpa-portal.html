@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MED-TPA Live Claims Portal</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            150: '#eef2f6',
+                            750: '#1e293b',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- React and Babel CDNs -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            .print-only {
+                display: block !important;
+            }
+            body {
+                background: white !important;
+                color: black !important;
+            }
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col text-slate-800 antialiased overflow-hidden">
+    <div id="root" class="h-full flex flex-col overflow-hidden"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        // TPA Addresses database for auto-fill
+        const tpaInsuranceAddresses = {
+            "ADITYA BIRLA GENERAL INSURANCE": "ADITYA BIRLA GENERAL INSURANCE 9th Floor, Tower 1, One Indiabulls Centre, Jupiter Mills Compound, 841, Senapati Bapat Marg, Elphinstone Road, Mumbai 400013",
+            "SBI GENERAL INSURANCE": "Health Insurance Vertical SBI General Insurance Company Limited 9th Floor, Westport, Pan Card Club Road, Baner, Pune, Maharashtra - 411 045",
+            "MEDIASSIST TPA": "Medi Assist Insurance TPA Pvt. Ltd Cashless Processing Centre#58/1A, Singasandra, Hosur Main Road, Begur Post, Bangalore. PIN - 560068. Helpline: 080-22068666",
+            "MDINDIA TPA": "MDIndia Health Insurance TPA Pvt. Ltd. S. No. 46/1, E-space, A-2 Building, 3rd Floor, Pune-Nagar Road, Vadgaonsheri, Pune - 411014",
+            "HITPA": "Health Insurance TPA of India Limited, 2nd Floor, Majestic Omni, No. 56, Richmond Road, Bangalore - 560025",
+            "MHS TPA": "Medsave Health Insurance TPA Ltd, F-701A, Lado Sarai, New Delhi - 110030",
+            "GENINS TPA": "Genins India Insurance TPA Ltd, Fontline Grandeur, No. 14, 1st Floor, Richmond Road, Bangalore - 560025",
+            "ALANKIT TPA": "Alankit Insurance TPA Limited, Alankit House, 4E/2 Jhandewalan Extension, New Delhi - 110055",
+            "HERITAGE TPA": "Heritage Health Insurance TPA Private Limited, Elite House, 2nd Floor, 24, Park Street, Kolkata - 700016",
+            "FAMILY HEALTH PLAN TPA": "Family Health Plan Insurance TPA Ltd, Sy No. 384, Ground Floor, Left Wing, Gowra Trinity, Chiran Fort Lane, Begumpet, Hyderabad - 500003",
+            "UNITED HEALTHCARE TPA": "United Health Care Parekh Insurance TPA Private Limited, 5th Floor, Building No. 2, Sector 2, Millennium Business Park, Mahape, Navi Mumbai - 400710",
+            "EAST WEST ASSIST TPA": "East West Assist TPA Private Limited, 38, LSC, Block B-1, Janakpuri, New Delhi - 110058",
+            "CHOLA MS GENERAL": "Cholamandalam MS General Insurance Company Ltd, 2nd Floor, Dare House, 2, NSC Bose Road, Chennai - 600001",
+            "VIPUL MEDCORP TPA": "Vipul Medcorp Insurance TPA Private Limited, 515, Udyog Vihar, Phase V, Gurgaon, Haryana - 122016",
+            "HDFC ERGO GENERAL": "HDFC ERGO General Insurance Company Limited, 5th Floor, Tower 1, Stella, TSC Road, Kalina, Santacruz East, Mumbai - 400098",
+            "ICICI LOMBARD GENERAL": "ICICI Lombard General Insurance Company Limited, ICICI Lombard House, 414, Veer Savarkar Marg, Near Siddhivinayak Temple, Prabhadevi, Mumbai - 400025",
+            "BAJAJ ALLIANZ GENERAL": "Bajaj Allianz General Insurance Company Limited, G.E. Plaza, Airport Road, Yerawada, Pune - 411006",
+            "STAR HEALTH INSURANCE": "Star Health and Allied Insurance Co. Ltd, No. 1, New Tank Street, Valluvar Kottam High Road, Nungambakkam, Chennai - 600034",
+            "NIVA BUPA HEALTH": "Niva Bupa Health Insurance Company Limited, 14th Floor, Two Horizon Centre, DLF Phase 5, Sector 43, Gurgaon, Haryana - 122002",
+            "CARE HEALTH INSURANCE": "Care Health Insurance Limited, 5th Floor, Vipul Tech Square, Sector 48, Sohna Road, Gurgaon, Haryana - 122018",
+            "RELIANCE GENERAL": "Reliance General Insurance Company Limited, 19th Floor, R-Tech Park, Western Express Highway, Goregaon East, Mumbai - 400063",
+            "KOTAK GENERAL INSURANCE": "Kotak Mahindra General Insurance Company Limited, 8th Floor, Zone IV, Kotak Infiniti, Malad East, Mumbai - 400097",
+            "IFFCO TOKIO GENERAL": "IFFCO Tokio General Insurance Company Limited, IFFCO Tower, Plot No. 3, Sector 29, Gurgaon, Haryana - 122001",
+            "LIBERTY GENERAL": "Liberty General Insurance Limited, 10th Floor, Tower A, Peninsula Business Park, Ganpatrao Kadam Marg, Lower Parel, Mumbai - 400013",
+            "FUTURE GENERALI GENERAL": "Future Generali India Insurance Company Limited, 6th Floor, Tower 3, Indiabulls Finance Centre, Senapati Bapat Marg, Elphinstone Road, Mumbai - 400013",
+            "ROYAL SUNDARAM GENERAL": "Royal Sundaram General Insurance Co. Limited, Subramaniam Building, No. 1, Club House Road, Anna Salai, Chennai - 600002",
+            "CHOLA HEALTH TPA": "Chola Health Insurance TPA, Dare House, No. 2, NSC Bose Road, Chennai - 600001",
+            "VIDAL HEALTH TPA": "Vidal Health Insurance TPA Pvt Ltd, 1st Floor, Tower No. 2, SJR iPark, EPIP Zone, Whitefield, Bangalore - 560066",
+            "PARAMOUNT TPA": "Paramount TPA c/o Medi-Assist TPA Road No. 28, M.I.D.C. Industrial Area, Wagle Estate, Ram Nagar, Thane (W), Maharashtra 400604"
+        };
+
+        const getTpaAddress = (tpaName, insName) => {
+            const findMatch = (name) => {
+                if (!name) return null;
+                const cleanName = name.toUpperCase().trim();
+                for (const key of Object.keys(tpaInsuranceAddresses)) {
+                    if (cleanName.includes(key) || key.includes(cleanName)) {
+                        return tpaInsuranceAddresses[key];
+                    }
+                }
+                return null;
+            };
+            return findMatch(tpaName) || findMatch(insName) || "";
+        };
+
+        const CATEGORIES = [
+            { id: "primary", label: "Patient Identity" },
+            { id: "clinical", label: "Clinical & Admission" },
+            { id: "policy", label: "Policy & TPA Details" },
+            { id: "financial", label: "Billing & Approval" },
+            { id: "payment", label: "TDS & Settlements" }
+        ];
+
+        const CATEGORY_COLUMNS = {
+            primary: ["uhid", "admissionStatus", "totalBilledAmount", "finalApprovedAmount", "patientPayableAmount", "contactNumber", "attenderName", "relation"],
+            clinical: ["gender", "diagnosis", "surgeryName", "admissionDate", "dischargeDate", "admissionStatus", "remarks", "attenderName", "relation"],
+            policy: ["memberId", "policyNumber", "employeeId", "claimNumber", "insuranceCompanyName", "tpaCompanyName", "insuranceLimit", "insuranceAddress"],
+            financial: ["ipBillingNumber", "totalBilledAmount", "initialApprovedAmount", "finalApprovedAmount", "discount", "totalDeductedAmount", "patientPayableAmount", "pan", "bankName", "bankAccountNumber"],
+            payment: ["tdsRate", "tdsDeductedAmount", "netPayableAmount", "settledAmount", "paymentReceived", "settlementStatus", "utrNumber", "utrDate", "courierServiceName", "courierDate"]
+        };
+
+        const COLUMN_LABELS = {
+            serialNumber: "S.No",
+            patientName: "Patient Name",
+            gender: "Gender",
+            contactNumber: "Contact Number",
+            uhid: "UHID (UID)",
+            memberId: "Member ID",
+            policyNumber: "Policy Number",
+            employeeId: "Employee ID",
+            claimNumber: "Claim Number",
+            diagnosis: "Diagnosis",
+            surgeryName: "Surgery Name",
+            admissionStatus: "Admission Status",
+            admissionDate: "Admission Date",
+            dischargeDate: "Discharge Date",
+            ipBillingNumber: "IP Billing #",
+            insuranceCompanyName: "Insurance Co.",
+            tpaCompanyName: "TPA Company",
+            totalBilledAmount: "Total Billed",
+            initialApprovedAmount: "Initial Approved",
+            finalApprovedAmount: "Final Approved",
+            discount: "Discount",
+            totalDeductedAmount: "Total Deducted",
+            patientPayableAmount: "Patient Payable",
+            tdsRate: "TDS Rate (%)",
+            tdsDeductedAmount: "TDS Deducted",
+            netPayableAmount: "Net Payable",
+            settledAmount: "Settled Amount",
+            paymentReceived: "Payment Received",
+            settlementStatus: "Settlement Status",
+            pan: "PAN Card",
+            bankName: "Bank Name",
+            bankAccountNumber: "Account Number",
+            ifscCode: "IFSC Code",
+            bankAddress: "Bank Address",
+            utrNumber: "UTR Number",
+            utrDate: "UTR Date",
+            courierServiceName: "Courier Service",
+            courierPodNumber: "Courier POD #",
+            courierDate: "Courier Date",
+            insuranceLimit: "Insurance Limit",
+            attenderName: "Attender Name",
+            relation: "Relation",
+            insuranceAddress: "Insurance Address",
+            remarks: "Remarks"
+        };
+
+        const defaultMockData = [
+            {
+                serialNumber: "SN-1",
+                patientName: "Ramesh Sharma",
+                gender: "Male",
+                contactNumber: "9876543210",
+                uhid: "UHID-98213",
+                memberId: "MEM-88210",
+                policyNumber: "POL-34821",
+                employeeId: "EMP-9021",
+                claimNumber: "CLM-11029",
+                diagnosis: "Acute Appendicitis",
+                surgeryName: "Laparoscopic Appendectomy",
+                admissionStatus: "Discharged",
+                admissionDate: "2026-07-01",
+                dischargeDate: "2026-07-04",
+                ipBillingNumber: "IP-77321",
+                insuranceCompanyName: "SBI GENERAL INSURANCE",
+                tpaCompanyName: "MEDIASSIST TPA",
+                totalBilledAmount: 85000,
+                initialApprovedAmount: 60000,
+                finalApprovedAmount: 75000,
+                discount: 5000,
+                totalDeductedAmount: 5000,
+                patientPayableAmount: 5000,
+                tdsRate: 10,
+                tdsDeductedAmount: 7500,
+                netPayableAmount: 67500,
+                settledAmount: 67500,
+                paymentReceived: "Yes",
+                settlementStatus: "Settled",
+                pan: "ABCDE1234F",
+                bankName: "HDFC Bank",
+                bankAccountNumber: "5010029384712",
+                ifscCode: "HDFC0000123",
+                bankAddress: "MG Road, Pune",
+                utrNumber: "UTR882910321",
+                utrDate: "2026-07-15",
+                courierServiceName: "BlueDart",
+                courierPodNumber: "POD-99210",
+                courierDate: "2026-07-10",
+                insuranceLimit: 300000,
+                attenderName: "Sunita Sharma",
+                relation: "Spouse",
+                insuranceAddress: "Health Insurance Vertical SBI General Insurance Company Limited 9th Floor, Westport, Pan Card Club Road, Baner, Pune, Maharashtra - 411 045",
+                remarks: "Smooth settlement"
+            }
+        ];
+
+        // Format Currency Helper
+        const formatCurrency = (val) => {
+            const num = Number(val);
+            if (isNaN(num)) return "₹0.00";
+            return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(num);
+        };
+
+        // Main App Component
+        function App() {
+            const [records, setRecords] = useState(() => {
+                const localData = localStorage.getItem("med_tpa_records");
+                return localData ? JSON.parse(localData) : defaultMockData;
+            });
+
+            // Save to localStorage
+            useEffect(() => {
+                localStorage.setItem("med_tpa_records", JSON.stringify(records));
+            }, [records]);
+
+            const [selectedCategory, setSelectedCategory] = useState("primary");
+            const [searchTerm, setSearchTerm] = useState("");
+            const [activeFilter, setActiveFilter] = useState("all");
+            
+            // Apps Script URL & Sheets Integration
+            const [sheetLink, setSheetLink] = useState(() => localStorage.getItem("med_tpa_sheet_link") || "");
+            const [appsScriptUrl, setAppsScriptUrl] = useState(() => localStorage.getItem("med_tpa_script_url") || "");
+            const [isAutoSyncEnabled, setIsAutoSyncEnabled] = useState(false);
+            const [sheetsMessage, setSheetsMessage] = useState(null);
+            const [syncLoading, setSyncLoading] = useState(false);
+            const [isConfigOpen, setIsConfigOpen] = useState(false);
+
+            // Modals & Forms State
+            const [isFormOpen, setIsFormOpen] = useState(false);
+            const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+            const [selectedRecord, setSelectedRecord] = useState(null);
+            const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+            const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+            const [bulkPrintRecords, setBulkPrintRecords] = useState([]);
+
+            // Form inputs
+            const [formData, setFormData] = useState({
+                patientName: "",
+                gender: "Male",
+                contactNumber: "",
+                uhid: "",
+                memberId: "",
+                policyNumber: "",
+                employeeId: "",
+                claimNumber: "",
+                diagnosis: "",
+                surgeryName: "",
+                admissionStatus: "Admitted",
+                admissionDate: "",
+                dischargeDate: "",
+                ipBillingNumber: "",
+                insuranceCompanyName: "",
+                tpaCompanyName: "",
+                totalBilledAmount: "",
+                initialApprovedAmount: "",
+                finalApprovedAmount: "",
+                discount: "",
+                totalDeductedAmount: "",
+                patientPayableAmount: "",
+                tdsRate: "10",
+                tdsDeductedAmount: "",
+                netPayableAmount: "",
+                settledAmount: "",
+                paymentReceived: "No",
+                settlementStatus: "Pending",
+                pan: "",
+                bankName: "",
+                bankAccountNumber: "",
+                ifscCode: "",
+                bankAddress: "",
+                utrNumber: "",
+                utrDate: "",
+                courierServiceName: "",
+                courierPodNumber: "",
+                courierDate: "",
+                insuranceLimit: "",
+                attenderName: "",
+                relation: "Self",
+                insuranceAddress: "",
+                remarks: ""
+            });
+
+            // Save Apps Script & sheets info
+            useEffect(() => {
+                localStorage.setItem("med_tpa_sheet_link", sheetLink);
+            }, [sheetLink]);
+
+            useEffect(() => {
+                localStorage.setItem("med_tpa_script_url", appsScriptUrl);
+            }, [appsScriptUrl]);
+
+            // Form change handler
+            const handleInputChange = (e) => {
+                const { name, value } = e.target;
+                setFormData(prev => {
+                    const updated = { ...prev, [name]: value };
+
+                    // Auto Fill TPA address
+                    if ((name === "tpaCompanyName" || name === "insuranceCompanyName") && value) {
+                        const foundAddress = getTpaAddress(
+                            name === "tpaCompanyName" ? value : prev.tpaCompanyName,
+                            name === "insuranceCompanyName" ? value : prev.insuranceCompanyName
+                        );
+                        if (foundAddress) {
+                            updated.insuranceAddress = foundAddress;
+                        }
+                    }
+
+                    // Auto Fill TDS / Net calculations
+                    if (name === "finalApprovedAmount" || name === "tdsRate" || name === "totalBilledAmount" || name === "discount" || name === "initialApprovedAmount") {
+                        const finalApp = parseFloat(updated.finalApprovedAmount) || 0;
+                        const tds = parseFloat(updated.tdsRate) || 0;
+                        const billed = parseFloat(updated.totalBilledAmount) || 0;
+                        const disc = parseFloat(updated.discount) || 0;
+                        
+                        updated.tdsDeductedAmount = ((finalApp * tds) / 100).toFixed(2);
+                        updated.netPayableAmount = (finalApp - parseFloat(updated.tdsDeductedAmount)).toFixed(2);
+                        
+                        // Deducted & Patient payable math
+                        const approvedAndDiscount = finalApp + disc;
+                        updated.totalDeductedAmount = Math.max(0, billed - approvedAndDiscount).toFixed(2);
+                        updated.patientPayableAmount = Math.max(0, billed - approvedAndDiscount).toFixed(2);
+                    }
+
+                    return updated;
+                });
+            };
+
+            // Add new Patient Record
+            const handleFormSubmit = (e) => {
+                e.preventDefault();
+                if (!formData.patientName || !formData.uhid) {
+                    alert("Patient Name and UHID are required fields!");
+                    return;
+                }
+
+                const sNo = `SN-${records.length + 1}`;
+                const newRecord = {
+                    ...formData,
+                    serialNumber: sNo,
+                    totalBilledAmount: parseFloat(formData.totalBilledAmount) || 0,
+                    initialApprovedAmount: parseFloat(formData.initialApprovedAmount) || 0,
+                    finalApprovedAmount: parseFloat(formData.finalApprovedAmount) || 0,
+                    discount: parseFloat(formData.discount) || 0,
+                    totalDeductedAmount: parseFloat(formData.totalDeductedAmount) || 0,
+                    patientPayableAmount: parseFloat(formData.patientPayableAmount) || 0,
+                    tdsRate: parseFloat(formData.tdsRate) || 0,
+                    tdsDeductedAmount: parseFloat(formData.tdsDeductedAmount) || 0,
+                    netPayableAmount: parseFloat(formData.netPayableAmount) || 0,
+                    settledAmount: parseFloat(formData.settledAmount) || 0,
+                    insuranceLimit: parseFloat(formData.insuranceLimit) || 0
+                };
+
+                setRecords(prev => [newRecord, ...prev]);
+                setIsFormOpen(false);
+                // Clear form
+                setFormData({
+                    patientName: "",
+                    gender: "Male",
+                    contactNumber: "",
+                    uhid: "",
+                    memberId: "",
+                    policyNumber: "",
+                    employeeId: "",
+                    claimNumber: "",
+                    diagnosis: "",
+                    surgeryName: "",
+                    admissionStatus: "Admitted",
+                    admissionDate: "",
+                    dischargeDate: "",
+                    ipBillingNumber: "",
+                    insuranceCompanyName: "",
+                    tpaCompanyName: "",
+                    totalBilledAmount: "",
+                    initialApprovedAmount: "",
+                    finalApprovedAmount: "",
+                    discount: "",
+                    totalDeductedAmount: "",
+                    patientPayableAmount: "",
+                    tdsRate: "10",
+                    tdsDeductedAmount: "",
+                    netPayableAmount: "",
+                    settledAmount: "",
+                    paymentReceived: "No",
+                    settlementStatus: "Pending",
+                    pan: "",
+                    bankName: "",
+                    bankAccountNumber: "",
+                    ifscCode: "",
+                    bankAddress: "",
+                    utrNumber: "",
+                    utrDate: "",
+                    courierServiceName: "",
+                    courierPodNumber: "",
+                    courierDate: "",
+                    insuranceLimit: "",
+                    attenderName: "",
+                    relation: "Self",
+                    insuranceAddress: "",
+                    remarks: ""
+                });
+            };
+
+            // Sync with Google Sheets
+            const triggerSyncToSheets = async () => {
+                if (!appsScriptUrl) {
+                    setSheetsMessage({ type: "error", text: "Please enter your deployed Google Apps Script Web App URL first." });
+                    return;
+                }
+                setSyncLoading(true);
+                setSheetsMessage({ type: "success", text: "Transmitting data to Google Sheets..." });
+
+                try {
+                    const response = await fetch(appsScriptUrl, {
+                        method: "POST",
+                        mode: "no-cors",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify(records)
+                    });
+                    setSheetsMessage({ type: "success", text: "Data sync request transmitted! Google Apps Script is writing records in real-time." });
+                } catch (err) {
+                    setSheetsMessage({ type: "error", text: err.message || "Google Apps Script sync failed. Check URL." });
+                } finally {
+                    setSyncLoading(false);
+                }
+            };
+
+            // Export to CSV
+            const handleExportCSV = () => {
+                let headers = [
+                    "S.No", "Patient Name", "Gender", "Contact Number", "UHID (UID)", "Member ID", "Policy Number", "Employee ID", "Claim Number", "Diagnosis", "Surgery Name", "Admission Status", "Admission Date", "Discharge Date", "IP Billing Number", "Insurance Company", "TPA Company", "Total Billed Amount", "Initial Approved", "Final Approved", "Discount", "Total Deducted", "Patient Payable", "TDS Rate (%)", "TDS Deducted", "Net Payable", "Settled Amount", "Payment Received", "Settlement Status", "PAN Card", "Bank Name", "Account Number", "IFSC Code", "Bank Address", "UTR Number", "UTR Date", "Courier Service", "Courier POD #", "Courier Date", "Insurance Limit", "Attender Name", "Relation", "Insurance Address", "Remarks"
+                ];
+
+                const keyMap = {
+                    "S.No": "serialNumber",
+                    "Patient Name": "patientName",
+                    "Gender": "gender",
+                    "Contact Number": "contactNumber",
+                    "UHID (UID)": "uhid",
+                    "Member ID": "memberId",
+                    "Policy Number": "policyNumber",
+                    "Employee ID": "employeeId",
+                    "Claim Number": "claimNumber",
+                    "Diagnosis": "diagnosis",
+                    "Surgery Name": "surgeryName",
+                    "Admission Status": "admissionStatus",
+                    "Admission Date": "admissionDate",
+                    "Discharge Date": "dischargeDate",
+                    "IP Billing Number": "ipBillingNumber",
+                    "Insurance Company": "insuranceCompanyName",
+                    "TPA Company": "tpaCompanyName",
+                    "Total Billed Amount": "totalBilledAmount",
+                    "Initial Approved": "initialApprovedAmount",
+                    "Final Approved": "finalApprovedAmount",
+                    "Discount": "discount",
+                    "Total Deducted": "totalDeductedAmount",
+                    "Patient Payable": "patientPayableAmount",
+                    "TDS Rate (%)": "tdsRate",
+                    "TDS Deducted": "tdsDeductedAmount",
+                    "Net Payable": "netPayableAmount",
+                    "Settled Amount": "settledAmount",
+                    "Payment Received": "paymentReceived",
+                    "Settlement Status": "settlementStatus",
+                    "PAN Card": "pan",
+                    "Bank Name": "bankName",
+                    "Account Number": "bankAccountNumber",
+                    "IFSC Code": "ifscCode",
+                    "Bank Address": "bankAddress",
+                    "UTR Number": "utrNumber",
+                    "UTR Date": "utrDate",
+                    "Courier Service": "courierServiceName",
+                    "Courier POD #": "courierPodNumber",
+                    "Courier Date": "courierDate",
+                    "Insurance Limit": "insuranceLimit",
+                    "Attender Name": "attenderName",
+                    "Relation": "relation",
+                    "Insurance Address": "insuranceAddress",
+                    "Remarks": "remarks"
+                };
+
+                const csvContent = [
+                    headers.join(","),
+                    ...records.map(record => {
+                        return headers.map(h => {
+                            let val = record[keyMap[h]];
+                            
+                            // Fix S.No to export as raw clean sequence number (e.g. 1, 2, 3 instead of SN-1)
+                            if (keyMap[h] === "serialNumber" && typeof val === "string") {
+                                const numericPart = val.replace(/[^0-9]/g, "");
+                                val = numericPart || val;
+                            }
+
+                            // Proper formatting for numbers to avoid Excel errors
+                            if (typeof val === "number") {
+                                if (isNaN(val)) val = 0;
+                                else val = Math.round((val + Number.EPSILON) * 100) / 100;
+                            }
+
+                            const stringified = val !== undefined && val !== null ? String(val) : "";
+                            return `"${stringified.replace(/"/g, '""')}"`;
+                        }).join(",");
+                    })
+                ].join("\n");
+
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement("a");
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", `TPA_Claims_Export_${new Date().toISOString().slice(0,10)}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
+            // Filter & Search Records
+            const filteredRecords = useMemo(() => {
+                return records.filter(r => {
+                    const matchSearch = (
+                        r.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        r.uhid?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        r.policyNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        r.claimNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        r.insuranceCompanyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        r.tpaCompanyName?.toLowerCase().includes(searchTerm.toLowerCase())
+                    );
+
+                    if (activeFilter === "all") return matchSearch;
+                    if (activeFilter === "admitted") return matchSearch && r.admissionStatus === "Admitted";
+                    if (activeFilter === "discharged") return matchSearch && r.admissionStatus === "Discharged";
+                    if (activeFilter === "settled") return matchSearch && r.settlementStatus === "Settled";
+                    if (activeFilter === "pending") return matchSearch && r.settlementStatus === "Pending";
+                    return matchSearch;
+                });
+            }, [records, searchTerm, activeFilter]);
+
+            // Totals for Live Claims Desk
+            const totalCount = filteredRecords.length;
+            const totalAmountSum = filteredRecords.reduce((sum, r) => sum + (r.totalBilledAmount || 0), 0);
+
+            // Delete Record
+            const handleDeleteRecord = (sNo) => {
+                if (confirm(`Are you sure you want to delete claim ${sNo}?`)) {
+                    setRecords(prev => prev.filter(r => r.serialNumber !== sNo));
+                }
+            };
+
+            // Apps Script source template string
+            const appsScriptCodeString = `// COPY-PASTE THIS ENTIRE CODE DIRECTLY INTO YOUR GOOGLE SHEET SCRIPT EDITOR
+// (Extensions > Apps Script)
+
+function doGet(e) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var rows = sheet.getDataRange().getValues();
+  if (rows.length < 2) {
+    return ContentService.createTextOutput(JSON.stringify([])).setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  var headers = rows[0];
+  var data = [];
+  
+  var keyMap = {
+    "S.No": "serialNumber",
+    "Patient Name": "patientName",
+    "Gender": "gender",
+    "Contact Number": "contactNumber",
+    "UHID (UID)": "uhid",
+    "Member ID": "memberId",
+    "Policy Number": "policyNumber",
+    "Employee ID": "employeeId",
+    "Claim Number": "claimNumber",
+    "Diagnosis": "diagnosis",
+    "Surgery Name": "surgeryName",
+    "Admission Status": "admissionStatus",
+    "Admission Date": "admissionDate",
+    "Discharge Date": "dischargeDate",
+    "IP Billing Number": "ipBillingNumber",
+    "Insurance Company": "insuranceCompanyName",
+    "TPA Company": "tpaCompanyName",
+    "Total Billed Amount": "totalBilledAmount",
+    "Initial Approved": "initialApprovedAmount",
+    "Final Approved": "finalApprovedAmount",
+    "Discount": "discount",
+    "Total Deducted": "totalDeductedAmount",
+    "Patient Payable": "patientPayableAmount",
+    "TDS Rate (%)": "tdsRate",
+    "TDS Deducted": "tdsDeductedAmount",
+    "Net Payable": "netPayableAmount",
+    "Settled Amount": "settledAmount",
+    "Payment Received": "paymentReceived",
+    "Settlement Status": "settlementStatus",
+    "PAN Card": "pan",
+    "Bank Name": "bankName",
+    "Account Number": "bankAccountNumber",
+    "IFSC Code": "ifscCode",
+    "Bank Address": "bankAddress",
+    "UTR Number": "utrNumber",
+    "UTR Date": "utrDate",
+    "Courier Service": "courierServiceName",
+    "Courier POD #": "courierPodNumber",
+    "Courier Date": "courierDate",
+    "Insurance Limit": "insuranceLimit",
+    "Attender Name": "attenderName",
+    "Relation": "relation",
+    "Insurance Address": "insuranceAddress",
+    "Remarks": "remarks"
+  };
+  
+  for (var i = 1; i < rows.length; i++) {
+    var row = rows[i];
+    var obj = {};
+    for (var j = 0; j < headers.length; j++) {
+      var headerName = headers[j].toString().trim();
+      var key = keyMap[headerName] || headerName;
+      obj[key] = row[j];
+    }
+    data.push(obj);
+  }
+  
+  var response = JSON.stringify(data);
+  return ContentService.createTextOutput(response)
+    .setMimeType(ContentService.MimeType.JSON)
+    .setHeader("Access-Control-Allow-Origin", "*");
+}
+
+function doPost(e) {
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000);
+    
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var payload = JSON.parse(e.postData.contents);
+    
+    if (!Array.isArray(payload)) {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Invalid array" }))
+        .setMimeType(ContentService.MimeType.JSON)
+        .setHeader("Access-Control-Allow-Origin", "*");
+    }
+    
+    sheet.clear();
+    
+    var headers = [
+      "S.No", "Patient Name", "Gender", "Contact Number", "UHID (UID)", "Member ID", "Policy Number", "Employee ID", "Claim Number", "Diagnosis", "Surgery Name", "Admission Status", "Admission Date", "Discharge Date", "IP Billing Number", "Insurance Company", "TPA Company", "Total Billed Amount", "Initial Approved", "Final Approved", "Discount", "Total Deducted", "Patient Payable", "TDS Rate (%)", "TDS Deducted", "Net Payable", "Settled Amount", "Payment Received", "Settlement Status", "PAN Card", "Bank Name", "Account Number", "IFSC Code", "Bank Address", "UTR Number", "UTR Date", "Courier Service", "Courier POD #", "Courier Date", "Insurance Limit", "Attender Name", "Relation", "Insurance Address", "Remarks"
+    ];
+    
+    var keyMap = {
+      "S.No": "serialNumber",
+      "Patient Name": "patientName",
+      "Gender": "gender",
+      "Contact Number": "contactNumber",
+      "UHID (UID)": "uhid",
+      "Member ID": "memberId",
+      "Policy Number": "policyNumber",
+      "Employee ID": "employeeId",
+      "Claim Number": "claimNumber",
+      "Diagnosis": "diagnosis",
+      "Surgery Name": "surgeryName",
+      "Admission Status": "admissionStatus",
+      "Admission Date": "admissionDate",
+      "Discharge Date": "dischargeDate",
+      "IP Billing Number": "ipBillingNumber",
+      "Insurance Company": "insuranceCompanyName",
+      "TPA Company": "tpaCompanyName",
+      "Total Billed Amount": "totalBilledAmount",
+      "Initial Approved": "initialApprovedAmount",
+      "Final Approved": "finalApprovedAmount",
+      "Discount": "discount",
+      "Total Deducted": "totalDeductedAmount",
+      "Patient Payable": "patientPayableAmount",
+      "TDS Rate (%)": "tdsRate",
+      "TDS Deducted": "tdsDeductedAmount",
+      "Net Payable": "netPayableAmount",
+      "Settled Amount": "settledAmount",
+      "Payment Received": "paymentReceived",
+      "Settlement Status": "settlementStatus",
+      "PAN Card": "pan",
+      "Bank Name": "bankName",
+      "Account Number": "bankAccountNumber",
+      "IFSC Code": "ifscCode",
+      "Bank Address": "bankAddress",
+      "UTR Number": "utrNumber",
+      "UTR Date": "utrDate",
+      "Courier Service": "courierServiceName",
+      "Courier POD #": "courierPodNumber",
+      "Courier Date": "courierDate",
+      "Insurance Limit": "insuranceLimit",
+      "Attender Name": "attenderName",
+      "Relation": "relation",
+      "Insurance Address": "insuranceAddress",
+      "Remarks": "remarks"
+    };
+    
+    var values2D = [];
+    values2D.push(headers);
+    
+    for (var i = 0; i < payload.length; i++) {
+      var item = payload[i];
+      var row = [];
+      for (var j = 0; j < headers.length; j++) {
+        var key = keyMap[headers[j]];
+        var val = item[key];
+        
+        if (key === "serialNumber" && typeof val === "string") {
+          var numPart = val.replace(/[^0-9]/g, "");
+          val = numPart ? parseInt(numPart, 10) : val;
+        }
+        
+        row.push(val !== undefined && val !== null ? val : "");
+      }
+      values2D.push(row);
+    }
+    
+    var numRows = values2D.length;
+    var numCols = headers.length;
+    var range = sheet.getRange(1, 1, numRows, numCols);
+    
+    // Set text format BEFORE writing values to prevent truncation/scientific notation of leading zeros
+    for (var col = 1; col <= numCols; col++) {
+      var headerName = headers[col - 1];
+      var targetRange = sheet.getRange(2, col, numRows - 1, 1);
+      
+      if (headerName === "S.No" || headerName === "Member ID" || headerName === "Policy Number" || headerName === "Claim Number" || headerName === "Account Number" || headerName === "IFSC Code" || headerName === "UTR Number" || headerName === "Courier POD #" || headerName === "Employee ID" || headerName === "PAN Card") {
+        targetRange.setNumberFormat("@");
+      }
+    }
+    
+    range.setValues(values2D);
+    range.setHorizontalAlignment("left");
+    
+    var headerRange = sheet.getRange(1, 1, 1, numCols);
+    headerRange.setFontWeight("bold");
+    headerRange.setBackground("#2563eb");
+    headerRange.setFontColor("#ffffff");
+    sheet.setRowHeight(1, 28);
+    sheet.setFrozenRows(1);
+    
+    var currencyFormat = "₹#,##0.00";
+    var percentFormat = "0.0%";
+    
+    for (var col = 1; col <= numCols; col++) {
+      var headerName = headers[col - 1];
+      var targetRange = sheet.getRange(2, col, numRows - 1, 1);
+      
+      if (headerName.indexOf("Amount") !== -1 || headerName === "Initial Approved" || headerName === "Final Approved" || headerName === "Discount" || headerName === "Total Deducted" || headerName === "Patient Payable" || headerName === "TDS Deducted" || headerName === "Net Payable" || headerName === "Insurance Limit" || headerName === "Settled Amount") {
+        targetRange.setNumberFormat(currencyFormat);
+      } else if (headerName === "TDS Rate (%)") {
+        targetRange.setNumberFormat(percentFormat);
+      }
+    }
+    
+    sheet.autoResizeColumns(1, numCols);
+    
+    return ContentService.createTextOutput(JSON.stringify({ success: true, count: payload.length }))
+      .setMimeType(ContentService.MimeType.JSON)
+      .setHeader("Access-Control-Allow-Origin", "*");
+      
+  } catch(e) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: e.toString() }))
+      .setMimeType(ContentService.MimeType.JSON)
+      .setHeader("Access-Control-Allow-Origin", "*");
+  } finally {
+    lock.releaseLock();
+  }
+}`;
+
+            return (
+                <div class="h-full flex flex-col overflow-hidden bg-slate-50">
+                    {/* Header Bar */}
+                    <header class="h-12 bg-slate-900 text-white flex items-center justify-between px-4 shrink-0 border-b border-slate-700 shadow-lg sticky top-0 z-40 w-full no-print">
+                        <div class="flex items-center gap-3">
+                            <div class="bg-blue-600 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-white">MED-TPA</div>
+                            <h1 class="text-xs sm:text-sm font-semibold truncate flex items-center gap-1.5 flex-wrap">
+                                <span>Live Claims Desk</span>
+                                <span class="text-[9px] sm:text-[10px] bg-blue-500/20 text-blue-300 px-1.5 py-0.2 rounded font-mono font-bold">
+                                    {totalCount} Claims
+                                </span>
+                                <span class="text-[9px] sm:text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 rounded font-mono font-bold">
+                                    {formatCurrency(totalAmountSum)}
+                                </span>
+                            </h1>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button 
+                                onClick={() => setIsConfigOpen(!isConfigOpen)}
+                                class="flex items-center gap-1.5 px-3 py-1.5 rounded bg-slate-800 text-slate-200 text-[10.5px] font-extrabold uppercase hover:bg-slate-700 transition cursor-pointer"
+                            >
+                                <i data-lucide="settings" class="h-3.5 w-3.5"></i>
+                                <span>Apps Script Config</span>
+                            </button>
+                            <button 
+                                onClick={() => setIsFormOpen(true)}
+                                class="flex items-center gap-1.5 px-3 py-1.5 rounded bg-blue-600 text-white text-[10.5px] font-extrabold uppercase hover:bg-blue-500 transition cursor-pointer"
+                            >
+                                <i data-lucide="plus" class="h-3.5 w-3.5"></i>
+                                <span>Register Claim</span>
+                            </button>
+                        </div>
+                    </header>
+
+                    {/* Apps Script Settings Drawer / Alert Box */}
+                    {isConfigOpen && (
+                        <div class="bg-white border-b border-slate-200 p-4 shrink-0 shadow-sm no-print">
+                            <div class="flex justify-between items-center mb-3">
+                                <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Google Sheets Apps Script Integration</h3>
+                                <button onClick={() => setIsConfigOpen(false)} class="text-slate-400 hover:text-slate-600">
+                                    <i data-lucide="x-circle" class="h-4 w-4"></i>
+                                </button>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs mb-3">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Spreadsheet Link</label>
+                                    <input 
+                                        type="text" 
+                                        value={sheetLink} 
+                                        onChange={(e) => setSheetLink(e.target.value)}
+                                        placeholder="https://docs.google.com/spreadsheets/d/..."
+                                        class="w-full p-2 border rounded bg-slate-50 text-[10.5px] font-mono focus:ring-1 focus:ring-blue-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Web App API URL</label>
+                                    <input 
+                                        type="text" 
+                                        value={appsScriptUrl} 
+                                        onChange={(e) => setAppsScriptUrl(e.target.value)}
+                                        placeholder="https://script.google.com/macros/s/..."
+                                        class="w-full p-2 border rounded bg-slate-50 text-[10.5px] font-mono focus:ring-1 focus:ring-blue-500"
+                                    />
+                                </div>
+                                <div class="flex items-end gap-2">
+                                    <button 
+                                        onClick={triggerSyncToSheets}
+                                        disabled={syncLoading}
+                                        class="w-full h-9 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-300 text-white text-[10.5px] font-extrabold uppercase rounded shadow transition cursor-pointer flex items-center justify-center gap-1.5"
+                                    >
+                                        <i data-lucide="refresh-cw" class={`h-3.5 w-3.5 ${syncLoading ? 'animate-spin' : ''}`}></i>
+                                        <span>Sync Current Board</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {sheetsMessage && (
+                                <div class={`p-2 rounded text-[10px] font-mono mb-3 ${sheetsMessage.type === "success" ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'}`}>
+                                    {sheetsMessage.text}
+                                </div>
+                            )}
+
+                            <div class="border border-slate-200 rounded p-2 bg-slate-50">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="text-[9px] font-bold text-slate-500 uppercase">Google Sheets Extension Script Code</span>
+                                    <button 
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(appsScriptCodeString);
+                                            alert("Code copied to clipboard! Paste it inside Extensions -> Apps Script on your Google Sheet.");
+                                        }}
+                                        class="text-[9px] text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1"
+                                    >
+                                        <i data-lucide="copy" class="h-2.5 w-2.5"></i> Copy Code String
+                                    </button>
+                                </div>
+                                <pre class="text-[8px] font-mono bg-slate-900 text-slate-300 p-2 rounded max-h-24 overflow-y-auto leading-normal">{appsScriptCodeString}</pre>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Filter Bar */}
+                    <div class="bg-slate-100 border-b border-slate-200 p-2 flex flex-col sm:flex-row items-center justify-between gap-2 shrink-0 no-print">
+                        <div class="flex items-center gap-2 overflow-x-auto w-full sm:w-auto">
+                            {["all", "admitted", "discharged", "settled", "pending"].map(filt => (
+                                <button 
+                                    key={filt}
+                                    onClick={() => setActiveFilter(filt)}
+                                    class={`px-2.5 py-1 rounded text-[10.5px] font-extrabold uppercase whitespace-nowrap cursor-pointer transition ${activeFilter === filt ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-200'}`}
+                                >
+                                    {filt}
+                                </button>
+                            ))}
+                        </div>
+                        <div class="flex items-center gap-2 w-full sm:w-64">
+                            <input 
+                                type="text"
+                                placeholder="Search Name, UHID, Claim, TPA..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                class="w-full p-1.5 border rounded bg-white text-xs text-slate-800 focus:ring-1 focus:ring-blue-500"
+                            />
+                            <button 
+                                onClick={handleExportCSV}
+                                class="flex items-center gap-1 bg-white hover:bg-slate-100 border text-slate-700 text-xs px-2.5 py-1.5 rounded cursor-pointer shrink-0 font-bold"
+                            >
+                                <i data-lucide="download" class="h-3.5 w-3.5"></i> Export
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Category Column Nav */}
+                    <div class="bg-white border-b border-slate-200 px-3 py-1 flex gap-2 overflow-x-auto shrink-0 no-print">
+                        {CATEGORIES.map(cat => (
+                            <button
+                                key={cat.id}
+                                onClick={() => setSelectedCategory(cat.id)}
+                                class={`px-2.5 py-1.5 border-b-2 text-[10.5px] font-extrabold uppercase whitespace-nowrap cursor-pointer transition ${selectedCategory === cat.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+                            >
+                                {cat.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Claims Spreadsheet Sheet Table */}
+                    <div class="flex-1 overflow-auto p-2 no-print">
+                        <div class="border border-slate-300 rounded-lg overflow-hidden bg-white shadow-sm">
+                            <table class="w-full border-collapse text-left text-xs">
+                                <thead>
+                                    <tr class="bg-slate-800 text-white font-semibold">
+                                        <th class="p-2 border border-slate-700 w-12 text-center">S.No</th>
+                                        <th class="p-2 border border-slate-700 w-44">Patient Name</th>
+                                        {CATEGORY_COLUMNS[selectedCategory].map(colKey => (
+                                            <th key={colKey} class="p-2 border border-slate-700 font-bold uppercase tracking-wide text-[10px]">
+                                                {COLUMN_LABELS[colKey]}
+                                            </th>
+                                        ))}
+                                        <th class="p-2 border border-slate-700 w-24 text-center">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-200 font-medium">
+                                    {filteredRecords.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={3 + CATEGORY_COLUMNS[selectedCategory].length} class="p-8 text-center text-slate-400 italic">No records matches criteria.</td>
+                                        </tr>
+                                    ) : (
+                                        filteredRecords.map((record, idx) => (
+                                            <tr key={record.serialNumber} class="hover:bg-slate-50">
+                                                <td class="p-2 border border-slate-200 text-center font-mono font-bold text-slate-500">{record.serialNumber}</td>
+                                                <td class="p-2 border border-slate-200 font-bold text-slate-900">{record.patientName}</td>
+                                                {CATEGORY_COLUMNS[selectedCategory].map(colKey => {
+                                                    const rawVal = record[colKey];
+                                                    let displayVal = rawVal !== undefined && rawVal !== null ? String(rawVal) : "N/A";
+                                                    
+                                                    // Financial currency formatter
+                                                    if (colKey.toLowerCase().includes("amount") || colKey === "discount" || colKey === "insuranceLimit") {
+                                                        displayVal = formatCurrency(rawVal);
+                                                    }
+
+                                                    return (
+                                                        <td key={colKey} class="p-2 border border-slate-200 font-mono text-slate-700 text-left">
+                                                            {displayVal}
+                                                        </td>
+                                                    );
+                                                })}
+                                                <td class="p-2 border border-slate-200 text-center flex items-center justify-center gap-1.5">
+                                                    <button 
+                                                        onClick={() => { setSelectedRecord(record); setIsViewModalOpen(true); }}
+                                                        class="p-1 text-slate-600 hover:text-blue-600 cursor-pointer"
+                                                        title="View/Edit Details"
+                                                    >
+                                                        <i data-lucide="eye" class="h-3.5 w-3.5"></i>
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => { setSelectedRecord(record); setIsPrintModalOpen(true); }}
+                                                        class="p-1 text-slate-600 hover:text-indigo-600 cursor-pointer"
+                                                        title="Print Cover Letter"
+                                                    >
+                                                        <i data-lucide="printer" class="h-3.5 w-3.5"></i>
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleDeleteRecord(record.serialNumber)}
+                                                        class="p-1 text-slate-600 hover:text-rose-600 cursor-pointer"
+                                                        title="Delete Claim Record"
+                                                    >
+                                                        <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {/* MODAL: Register Patient Record Form */}
+                    {isFormOpen && (
+                        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto no-print">
+                            <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[90vh] flex flex-col">
+                                <header class="p-4 border-b flex items-center justify-between shrink-0 bg-slate-900 text-white rounded-t-xl">
+                                    <h2 class="font-extrabold text-sm uppercase tracking-wide">Register New Patient Record</h2>
+                                    <button onClick={() => setIsFormOpen(false)} class="text-slate-400 hover:text-white">
+                                        <i data-lucide="x" class="h-5 w-5"></i>
+                                    </button>
+                                </header>
+                                <form onSubmit={handleFormSubmit} class="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        {/* Row 1 */}
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase">Patient Name *</label>
+                                            <input required name="patientName" value={formData.patientName} onChange={handleInputChange} class="w-full p-2 border rounded" />
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase">Gender</label>
+                                            <select name="gender" value={formData.gender} onChange={handleInputChange} class="w-full p-2 border rounded">
+                                                <option>Male</option>
+                                                <option>Female</option>
+                                                <option>Other</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase">UHID (UID) *</label>
+                                            <input required name="uhid" value={formData.uhid} onChange={handleInputChange} class="w-full p-2 border rounded font-mono" />
+                                        </div>
+                                        {/* Row 2 */}
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase">Contact Number (WhatsApp)</label>
+                                            <input name="contactNumber" value={formData.contactNumber} onChange={handleInputChange} class="w-full p-2 border rounded font-mono" />
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase">Member ID</label>
+                                            <input name="memberId" value={formData.memberId} onChange={handleInputChange} class="w-full p-2 border rounded font-mono" />
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase">Policy Number</label>
+                                            <input name="policyNumber" value={formData.policyNumber} onChange={handleInputChange} class="w-full p-2 border rounded font-mono" />
+                                        </div>
+                                        {/* Row 3 */}
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase">Employee ID</label>
+                                            <input name="employeeId" value={formData.employeeId} onChange={handleInputChange} class="w-full p-2 border rounded font-mono" />
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase">Claim Number</label>
+                                            <input name="claimNumber" value={formData.claimNumber} onChange={handleInputChange} class="w-full p-2 border rounded font-mono" />
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase">Diagnosis</label>
+                                            <input name="diagnosis" value={formData.diagnosis} onChange={handleInputChange} class="w-full p-2 border rounded" />
+                                        </div>
+                                        {/* Row 4 */}
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase">Surgery Name</label>
+                                            <input name="surgeryName" value={formData.surgeryName} onChange={handleInputChange} class="w-full p-2 border rounded" />
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase">Admission Status</label>
+                                            <select name="admissionStatus" value={formData.admissionStatus} onChange={handleInputChange} class="w-full p-2 border rounded">
+                                                <option>Admitted</option>
+                                                <option>Discharged</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase">Admission Date</label>
+                                            <input type="date" name="admissionDate" value={formData.admissionDate} onChange={handleInputChange} class="w-full p-2 border rounded font-mono" />
+                                        </div>
+                                        {/* Row 5 */}
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase">Discharge Date</label>
+                                            <input type="date" name="dischargeDate" value={formData.dischargeDate} onChange={handleInputChange} class="w-full p-2 border rounded font-mono" />
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase">IP Billing Number</label>
+                                            <input name="ipBillingNumber" value={formData.ipBillingNumber} onChange={handleInputChange} class="w-full p-2 border rounded font-mono" />
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase">TPA Company Name</label>
+                                            <select name="tpaCompanyName" value={formData.tpaCompanyName} onChange={handleInputChange} class="w-full p-2 border rounded">
+                                                <option value="">Select TPA...</option>
+                                                {Object.keys(tpaInsuranceAddresses).map(t => (
+                                                    <option key={t} value={t}>{t}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        {/* Row 6 */}
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase">Insurance Company Name</label>
+                                            <input name="insuranceCompanyName" value={formData.insuranceCompanyName} onChange={handleInputChange} class="w-full p-2 border rounded" />
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase">Total Billed Amount (₹)</label>
+                                            <input type="number" name="totalBilledAmount" value={formData.totalBilledAmount} onChange={handleInputChange} class="w-full p-2 border rounded font-mono" />
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase">Initial Approved Amount (₹)</label>
+                                            <input type="number" name="initialApprovedAmount" value={formData.initialApprovedAmount} onChange={handleInputChange} class="w-full p-2 border rounded font-mono" />
+                                        </div>
+                                        {/* Row 7 */}
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase">Final Approved Amount (₹)</label>
+                                            <input type="number" name="finalApprovedAmount" value={formData.finalApprovedAmount} onChange={handleInputChange} class="w-full p-2 border rounded font-mono" />
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase">Discount (₹)</label>
+                                            <input type="number" name="discount" value={formData.discount} onChange={handleInputChange} class="w-full p-2 border rounded font-mono" />
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase">TDS Rate (%)</label>
+                                            <select name="tdsRate" value={formData.tdsRate} onChange={handleInputChange} class="w-full p-2 border rounded font-mono">
+                                                <option value="10">10%</option>
+                                                <option value="5">5%</option>
+                                                <option value="2">2%</option>
+                                                <option value="0">0%</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="border border-slate-200 p-3 bg-slate-50 rounded">
+                                        <h4 class="text-[10px] font-bold uppercase text-slate-500 mb-2">Policy, Insurance & TPA Metadata</h4>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            <div>
+                                                <label class="block text-[10px] font-bold text-slate-500 uppercase">Insurance Address (Auto-filled on TPA change)</label>
+                                                <textarea name="insuranceAddress" value={formData.insuranceAddress} onChange={handleInputChange} class="w-full p-2 border rounded bg-white text-[10.5px] font-sans h-20" />
+                                            </div>
+                                            <div>
+                                                <label class="block text-[10px] font-bold text-slate-500 uppercase">Special Remarks / Internal Audit Notes</label>
+                                                <textarea name="remarks" value={formData.remarks} onChange={handleInputChange} class="w-full p-2 border rounded bg-white text-[10.5px] font-sans h-20" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="p-3 border-t flex justify-end gap-2 shrink-0 bg-slate-50">
+                                        <button type="button" onClick={() => setIsFormOpen(false)} class="px-4 py-2 border rounded bg-white text-slate-700 hover:bg-slate-100 font-bold uppercase tracking-wider text-[10.5px]">Cancel</button>
+                                        <button type="submit" class="px-5 py-2 rounded bg-blue-600 hover:bg-blue-500 text-white font-bold uppercase tracking-wider text-[10.5px]">Save Claim</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* MODAL: View/Edit Modal */}
+                    {isViewModalOpen && selectedRecord && (
+                        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto no-print">
+                            <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-4xl">
+                                <header class="p-4 border-b flex items-center justify-between bg-slate-900 text-white rounded-t-xl">
+                                    <h3 class="font-extrabold text-sm uppercase tracking-wide">Claim File: {selectedRecord.patientName} ({selectedRecord.serialNumber})</h3>
+                                    <button onClick={() => setIsViewModalOpen(false)} class="text-slate-400 hover:text-white">
+                                        <i data-lucide="x" class="h-5 w-5"></i>
+                                    </button>
+                                </header>
+                                <div class="p-6 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs max-h-[80vh] overflow-y-auto">
+                                    <div>
+                                        <span class="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">Patient Name</span>
+                                        <span class="font-semibold text-slate-800">{selectedRecord.patientName}</span>
+                                    </div>
+                                    <div>
+                                        <span class="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">Gender</span>
+                                        <span class="font-semibold text-slate-800">{selectedRecord.gender}</span>
+                                    </div>
+                                    <div>
+                                        <span class="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">Contact Number</span>
+                                        <span class="font-semibold text-slate-800 font-mono">{selectedRecord.contactNumber}</span>
+                                    </div>
+                                    <div>
+                                        <span class="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">UHID (UID)</span>
+                                        <span class="font-semibold text-slate-800 font-mono">{selectedRecord.uhid}</span>
+                                    </div>
+                                    <div>
+                                        <span class="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">TPA Company</span>
+                                        <span class="font-semibold text-slate-800">{selectedRecord.tpaCompanyName || "N/A"}</span>
+                                    </div>
+                                    <div>
+                                        <span class="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">Insurance Company</span>
+                                        <span class="font-semibold text-slate-800">{selectedRecord.insuranceCompanyName || "N/A"}</span>
+                                    </div>
+                                    <div>
+                                        <span class="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">Total Billed Amount</span>
+                                        <span class="font-semibold text-emerald-600 font-mono text-[13px]">{formatCurrency(selectedRecord.totalBilledAmount)}</span>
+                                    </div>
+                                    <div>
+                                        <span class="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">Final Approved</span>
+                                        <span class="font-semibold text-blue-600 font-mono text-[13px]">{formatCurrency(selectedRecord.finalApprovedAmount)}</span>
+                                    </div>
+                                    <div class="col-span-4 border-t pt-4">
+                                        <span class="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">Insurance Address</span>
+                                        <p class="font-medium text-slate-700 bg-slate-50 p-2.5 rounded border leading-relaxed mt-1">{selectedRecord.insuranceAddress || "No address mapped."}</p>
+                                    </div>
+                                </div>
+                                <footer class="p-3 border-t flex justify-end gap-2 bg-slate-50 rounded-b-xl">
+                                    <button onClick={() => setIsViewModalOpen(false)} class="px-4 py-2 border bg-white rounded font-bold text-[10.5px] uppercase">Close</button>
+                                </footer>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* MODAL: Print Cover Letter */}
+                    {isPrintModalOpen && selectedRecord && (
+                        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto no-print">
+                            <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-4xl">
+                                <header class="p-4 border-b flex items-center justify-between bg-slate-900 text-white rounded-t-xl">
+                                    <h3 class="font-extrabold text-sm uppercase tracking-wide">Generate TPA Submission Cover Letter</h3>
+                                    <button onClick={() => setIsPrintModalOpen(false)} class="text-slate-400 hover:text-white">
+                                        <i data-lucide="x" class="h-5 w-5"></i>
+                                    </button>
+                                </header>
+                                <div class="p-6 overflow-y-auto max-h-[70vh]">
+                                    {/* Print Preview Layout */}
+                                    <div id="cover-letter-print-area" class="border p-8 bg-white text-slate-800 text-[11px] leading-relaxed shadow-sm font-sans">
+                                        <div class="flex justify-between items-start border-b pb-4 mb-4">
+                                            <div>
+                                                <h1 class="text-lg font-bold text-slate-900">MED-TPA CARE CENTER</h1>
+                                                <p class="text-slate-500 font-medium">Claims Administration Department, Hospital HQ</p>
+                                            </div>
+                                            <div class="text-right">
+                                                <p class="font-bold">Date: {new Date().toLocaleDateString('en-IN')}</p>
+                                                <p class="text-slate-500 font-mono">REF: MED/TPA/{selectedRecord.serialNumber}</p>
+                                            </div>
+                                        </div>
+
+                                        <p class="font-bold text-slate-900 uppercase">To,</p>
+                                        <p class="font-bold text-slate-800 text-[11px]">{selectedRecord.tpaCompanyName || "TPA Administration"}</p>
+                                        <p class="text-slate-600 italic whitespace-pre-wrap max-w-lg mb-4">{selectedRecord.insuranceAddress || "Insurance Address details"}</p>
+
+                                        <p class="font-bold mb-3 border-b pb-1 text-slate-900">Subject: Physical Document Submission for Claim Claim Ref: {selectedRecord.claimNumber || "N/A"}</p>
+
+                                        <p class="mb-4">Dear Sir/Madam,</p>
+                                        <p class="mb-4">We are submitting herewith the medical claim records and supporting physical documents for inpatient treatment as detailed below. We request you to process the settlement at your earliest convenience.</p>
+
+                                        <div class="border border-slate-200 rounded overflow-hidden mb-6">
+                                            <table class="w-full text-left">
+                                                <tbody class="divide-y divide-slate-100">
+                                                    <tr class="bg-slate-50">
+                                                        <td class="p-2 font-bold w-1/3">Patient Name</td>
+                                                        <td class="p-2">{selectedRecord.patientName} ({selectedRecord.gender})</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td class="p-2 font-bold">UHID / UID #</td>
+                                                        <td class="p-2 font-mono">{selectedRecord.uhid}</td>
+                                                    </tr>
+                                                    <tr class="bg-slate-50">
+                                                        <td class="p-2 font-bold">Policy / Member ID</td>
+                                                        <td class="p-2 font-mono">{selectedRecord.policyNumber} / {selectedRecord.memberId}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td class="p-2 font-bold">Diagnosis / Surgery</td>
+                                                        <td class="p-2">{selectedRecord.diagnosis} ({selectedRecord.surgeryName})</td>
+                                                    </tr>
+                                                    <tr class="bg-slate-50">
+                                                        <td class="p-2 font-bold">Billed Amount</td>
+                                                        <td class="p-2 font-mono font-bold text-slate-900">{formatCurrency(selectedRecord.totalBilledAmount)}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td class="p-2 font-bold">Approved Cashless Amount</td>
+                                                        <td class="p-2 font-mono font-bold text-blue-600">{formatCurrency(selectedRecord.finalApprovedAmount)}</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        <p class="mb-6">Please release the payment to our registered bank account as per the ECS mandate details on file.</p>
+                                        
+                                        <div class="flex justify-between items-end mt-8 pt-4 border-t">
+                                            <div>
+                                                <p class="font-bold">Authorised Signatory</p>
+                                                <p class="text-slate-500">Billing Department</p>
+                                            </div>
+                                            <div class="text-right text-[9px] text-slate-400">
+                                                <p>Generated via MED-TPA portal</p>
+                                                <p class="font-mono">IP Ref: {selectedRecord.ipBillingNumber || "N/A"}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <footer class="p-3 border-t bg-slate-50 flex justify-end gap-2 rounded-b-xl">
+                                    <button onClick={() => setIsPrintModalOpen(false)} class="px-4 py-2 border bg-white rounded font-bold text-[10.5px] uppercase">Cancel</button>
+                                    <button onClick={() => window.print()} class="px-5 py-2 rounded bg-blue-600 text-white font-bold text-[10.5px] uppercase flex items-center gap-1">
+                                        <i data-lucide="printer" class="h-3.5 w-3.5"></i> Print Document
+                                    </button>
+                                </footer>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const rootElement = document.getElementById('root');
+        const root = ReactDOM.createRoot(rootElement);
+        root.render(<App />);
+
+        // Refresh icons after render
+        setTimeout(() => {
+            if (window.lucide) {
+                window.lucide.createIcons();
+            }
+        }, 500);
+    </script>
+</body>
+</html>

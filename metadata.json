@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Remix: Patient Billing and Claim Tracker",
+  "description": "Comprehensive 38-column billing, insurance claim, and TDS tracking system with duplicate detection, Google Sheets sync, and automated folder creation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
